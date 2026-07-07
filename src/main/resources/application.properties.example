@@ -1,0 +1,25 @@
+# ==========================================
+# Application
+# ==========================================
+spring.application.name=distributed-url-shortener
+
+# ==========================================
+# PostgreSQL Configuration
+# ==========================================
+spring.datasource.url=jdbc:postgresql://localhost:5432/distributed_url_shortener
+spring.datasource.username=YOUR_USERNAME
+spring.datasource.password=YOUR_PASSWORD
+
+spring.datasource.driver-class-name=org.postgresql.Driver
+
+# ==========================================
+# Hibernate
+# ==========================================
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show-sql=true
+spring.jpa.properties.hibernate.format_sql=true
+
+# ==========================================
+# Server
+# ==========================================
+server.port=8080

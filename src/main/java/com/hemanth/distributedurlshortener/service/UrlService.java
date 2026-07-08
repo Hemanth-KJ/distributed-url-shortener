@@ -5,5 +5,8 @@ import com.hemanth.distributedurlshortener.dto.response.ShortUrlResponse;
 
 public interface UrlService {
 
+
     ShortUrlResponse createShortUrl(CreateShortUrlRequest request);
+
+    String getOriginalUrl(String shortCode);
 }

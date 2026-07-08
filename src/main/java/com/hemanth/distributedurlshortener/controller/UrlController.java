@@ -2,24 +2,46 @@ package com.hemanth.distributedurlshortener.controller;
 
 import com.hemanth.distributedurlshortener.dto.request.CreateShortUrlRequest;
 import com.hemanth.distributedurlshortener.dto.response.ShortUrlResponse;
+import com.hemanth.distributedurlshortener.response.ApiResponse;
 import com.hemanth.distributedurlshortener.service.UrlService;
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.time.LocalDateTime;
 
 @RestController
 @RequestMapping("/api/v1/urls")
-@RequiredArgsConstructor
 public class UrlController {
 
     private final UrlService urlService;
 
+    // Constructor Injection
+    public UrlController(UrlService urlService) {
+        this.urlService = urlService;
+    }
+
+    // Create Short URL
     @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
-    public ShortUrlResponse createShortUrl(
+    public ResponseEntity<ApiResponse<ShortUrlResponse>> createShortUrl(
             @Valid @RequestBody CreateShortUrlRequest request) {
 
-        return urlService.createShortUrl(request);
+        // Call service layer
+        ShortUrlResponse response = urlService.createShortUrl(request);
+
+        // Build standard API response
+        ApiResponse<ShortUrlResponse> apiResponse =
+                ApiResponse.<ShortUrlResponse>builder()
+                        .success(true)
+                        .message("Short URL created successfully")
+                        .data(response)
+                        .timestamp(LocalDateTime.now())
+                        .build();
+
+        // Return HTTP 201 Created
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(apiResponse);
     }
 }

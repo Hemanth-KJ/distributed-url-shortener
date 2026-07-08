@@ -6,6 +6,8 @@ import com.hemanth.distributedurlshortener.entity.Url;
 import com.hemanth.distributedurlshortener.repository.UrlRepository;
 import com.hemanth.distributedurlshortener.service.UrlService;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -15,28 +17,56 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class UrlServiceImpl implements UrlService {
 
+    private static final Logger logger =
+            LoggerFactory.getLogger(UrlServiceImpl.class);
+
     private final UrlRepository urlRepository;
 
     @Override
     public ShortUrlResponse createShortUrl(CreateShortUrlRequest request) {
 
-        String shortCode = UUID.randomUUID()
-                .toString()
-                .substring(0,8);
+        logger.info("Received request to create short URL for: {}", request.getOriginalUrl());
 
-        Url url = Url.builder()
-                .originalUrl(request.getOriginalUrl())
-                .shortCode(shortCode)
-                .createdAt(LocalDateTime.now())
-                .clickCount(0L)
-                .build();
+        try {
 
-        urlRepository.save(url);
+            // Generate short code
+            String shortCode = UUID.randomUUID()
+                    .toString()
+                    .substring(0, 8);
 
-        return ShortUrlResponse.builder()
-                .originalUrl(url.getOriginalUrl())
-                .shortCode(shortCode)
-                .shortUrl("http://localhost:8080/" + shortCode)
-                .build();
+            logger.info("Generated short code: {}", shortCode);
+
+            // Create entity
+            Url url = Url.builder()
+                    .originalUrl(request.getOriginalUrl())
+                    .shortCode(shortCode)
+                    .createdAt(LocalDateTime.now())
+                    .clickCount(0L)
+                    .build();
+
+            logger.info("Saving URL to database...");
+
+            // Save to database
+            urlRepository.save(url);
+
+            logger.info("URL saved successfully with ID: {}", url.getId());
+
+            // Build response
+            ShortUrlResponse response = ShortUrlResponse.builder()
+                    .originalUrl(url.getOriginalUrl())
+                    .shortCode(shortCode)
+                    .shortUrl("http://localhost:8080/" + shortCode)
+                    .build();
+
+            logger.info("Short URL created successfully.");
+
+            return response;
+
+        } catch (Exception ex) {
+
+            logger.error("Failed to create short URL.", ex);
+
+            throw ex;
+        }
     }
 }

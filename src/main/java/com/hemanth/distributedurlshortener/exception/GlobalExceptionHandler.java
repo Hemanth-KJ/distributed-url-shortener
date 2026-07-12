@@ -2,6 +2,7 @@ package com.hemanth.distributedurlshortener.exception;
 
 import com.hemanth.distributedurlshortener.response.ErrorResponse;
 import com.hemanth.distributedurlshortener.exception.UrlExpiredException;
+import com.hemanth.distributedurlshortener.exception.ShortCodeAlreadyExistsException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -61,6 +62,22 @@ public class GlobalExceptionHandler {
                 .build();
 
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(response);
+    }
+    @ExceptionHandler(ShortCodeAlreadyExistsException.class)
+    public ResponseEntity<ErrorResponse> handleShortCodeAlreadyExists(
+            ShortCodeAlreadyExistsException ex) {
+
+        logger.warn("Custom short code already exists: {}", ex.getMessage());
+
+        ErrorResponse response = ErrorResponse.builder()
+                .success(false)
+                .message(ex.getMessage())
+                .errors(null)
+                .timestamp(LocalDateTime.now())
+                .build();
+
+        return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(response);
     }
     @ExceptionHandler(UrlExpiredException.class)

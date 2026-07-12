@@ -2,12 +2,13 @@ package com.hemanth.distributedurlshortener.service.impl;
 
 import com.hemanth.distributedurlshortener.dto.request.CreateShortUrlRequest;
 import com.hemanth.distributedurlshortener.dto.response.ShortUrlResponse;
+import com.hemanth.distributedurlshortener.dto.response.UrlAnalyticsResponse;
 import com.hemanth.distributedurlshortener.entity.Url;
 import com.hemanth.distributedurlshortener.exception.ResourceNotFoundException;
+import com.hemanth.distributedurlshortener.exception.UrlExpiredException;
 import com.hemanth.distributedurlshortener.repository.UrlRepository;
 import com.hemanth.distributedurlshortener.service.UrlService;
-import com.hemanth.distributedurlshortener.dto.response.UrlAnalyticsResponse;
-import com.hemanth.distributedurlshortener.exception.UrlExpiredException;
+import com.hemanth.distributedurlshortener.exception.ShortCodeAlreadyExistsException;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -34,7 +35,7 @@ public class UrlServiceImpl implements UrlService {
         logger.info("Received request to create short URL for: {}",
                 request.getOriginalUrl());
 
-        // Check if URL already exists
+        // Check if original URL already exists
         Optional<Url> existingUrl =
                 urlRepository.findByOriginalUrl(request.getOriginalUrl());
 
@@ -45,12 +46,32 @@ public class UrlServiceImpl implements UrlService {
             return buildResponse(existingUrl.get());
         }
 
-        // Generate unique short code
-        String shortCode = generateUniqueShortCode();
+        String shortCode;
 
-        logger.info("Generated unique short code: {}", shortCode);
+        // Use custom short code if provided
+        if (request.getCustomShortCode() != null &&
+                !request.getCustomShortCode().isBlank()) {
 
-        // Create URL entity
+            shortCode = request.getCustomShortCode();
+
+            logger.info("Custom short code requested: {}", shortCode);
+
+            if (urlRepository.findByShortCode(shortCode).isPresent()) {
+
+                logger.error("Custom short code already exists: {}", shortCode);
+
+                throw new ShortCodeAlreadyExistsException("Short code already exists");
+            }
+
+        } else {
+
+            // Generate random unique short code
+            shortCode = generateUniqueShortCode();
+
+            logger.info("Generated unique short code: {}", shortCode);
+        }
+
+        // Create entity
         Url url = Url.builder()
                 .originalUrl(request.getOriginalUrl())
                 .shortCode(shortCode)
@@ -97,6 +118,7 @@ public class UrlServiceImpl implements UrlService {
 
         return url.getOriginalUrl();
     }
+
     @Override
     public UrlAnalyticsResponse getAnalytics(String shortCode) {
 
@@ -131,7 +153,7 @@ public class UrlServiceImpl implements UrlService {
     }
 
     /**
-     * Generate a unique short code.
+     * Generate a unique random short code.
      */
     private String generateUniqueShortCode() {
 

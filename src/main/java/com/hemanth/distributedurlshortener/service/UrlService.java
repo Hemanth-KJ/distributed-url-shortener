@@ -18,4 +18,5 @@ public interface UrlService {
     void redirectToOriginalUrl(String shortCode,
                                HttpServletResponse response)
             throws IOException;
+    byte[] generateQrCode(String shortCode);
 }

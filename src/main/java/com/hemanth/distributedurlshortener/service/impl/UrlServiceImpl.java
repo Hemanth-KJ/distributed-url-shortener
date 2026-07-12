@@ -9,6 +9,8 @@ import com.hemanth.distributedurlshortener.exception.UrlExpiredException;
 import com.hemanth.distributedurlshortener.repository.UrlRepository;
 import com.hemanth.distributedurlshortener.service.UrlService;
 import com.hemanth.distributedurlshortener.exception.ShortCodeAlreadyExistsException;
+import com.google.zxing.WriterException;
+import com.hemanth.distributedurlshortener.util.QrCodeGenerator;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -150,6 +152,30 @@ public class UrlServiceImpl implements UrlService {
         String originalUrl = getOriginalUrl(shortCode);
 
         response.sendRedirect(originalUrl);
+    }
+    @Override
+    public byte[] generateQrCode(String shortCode) {
+
+        logger.info("Generating QR code for short code: {}", shortCode);
+
+        Url url = urlRepository.findByShortCode(shortCode)
+                .orElseThrow(() -> {
+                    logger.error("QR code requested for non-existing short code: {}", shortCode);
+                    return new ResourceNotFoundException("Short URL not found");
+                });
+
+        String shortUrl = "http://localhost:8080/" + url.getShortCode();
+
+        try {
+
+            return QrCodeGenerator.generateQRCode(shortUrl, 300, 300);
+
+        } catch (WriterException | IOException e) {
+
+            logger.error("Failed to generate QR code.", e);
+
+            throw new RuntimeException("Unable to generate QR code");
+        }
     }
 
     /**

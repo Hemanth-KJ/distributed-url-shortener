@@ -1,6 +1,7 @@
 package com.hemanth.distributedurlshortener.exception;
 
 import com.hemanth.distributedurlshortener.response.ErrorResponse;
+import com.hemanth.distributedurlshortener.exception.UrlExpiredException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -48,8 +49,7 @@ public class GlobalExceptionHandler {
      * Handles resource not found exceptions
      */
     @ExceptionHandler(ResourceNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handleNotFound(
-            ResourceNotFoundException ex) {
+    public ResponseEntity<ErrorResponse> handleNotFound(ResourceNotFoundException ex) {
 
         logger.warn("Resource not found: {}", ex.getMessage());
 
@@ -61,6 +61,22 @@ public class GlobalExceptionHandler {
                 .build();
 
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(response);
+    }
+    @ExceptionHandler(UrlExpiredException.class)
+    public ResponseEntity<ErrorResponse> handleUrlExpired(
+            UrlExpiredException ex) {
+
+        logger.warn("Expired URL accessed: {}", ex.getMessage());
+
+        ErrorResponse response = ErrorResponse.builder()
+                .success(false)
+                .message(ex.getMessage())
+                .errors(null)
+                .timestamp(LocalDateTime.now())
+                .build();
+
+        return ResponseEntity.status(HttpStatus.GONE)
                 .body(response);
     }
 

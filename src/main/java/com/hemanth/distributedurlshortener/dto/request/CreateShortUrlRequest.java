@@ -1,16 +1,28 @@
 package com.hemanth.distributedurlshortener.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Future;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-import lombok.Getter;
-import lombok.Setter;
-import org.hibernate.validator.constraints.URL;
+import java.time.LocalDateTime;
 
-@Getter
-@Setter
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class CreateShortUrlRequest {
 
     @NotBlank(message = "Original URL cannot be empty")
-    @URL(message = "Please enter a valid URL")
+    @Pattern(
+            regexp = "^(https?://).+",
+            message = "URL must start with http:// or https://"
+    )
     private String originalUrl;
+
+    @Future(message = "Expiration date must be in the future")
+    private LocalDateTime expiresAt;
 }

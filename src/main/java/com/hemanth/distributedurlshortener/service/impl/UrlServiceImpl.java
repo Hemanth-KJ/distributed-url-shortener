@@ -7,6 +7,7 @@ import com.hemanth.distributedurlshortener.exception.ResourceNotFoundException;
 import com.hemanth.distributedurlshortener.repository.UrlRepository;
 import com.hemanth.distributedurlshortener.service.UrlService;
 import com.hemanth.distributedurlshortener.dto.response.UrlAnalyticsResponse;
+import com.hemanth.distributedurlshortener.exception.UrlExpiredException;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -54,6 +55,7 @@ public class UrlServiceImpl implements UrlService {
                 .originalUrl(request.getOriginalUrl())
                 .shortCode(shortCode)
                 .createdAt(LocalDateTime.now())
+                .expiresAt(request.getExpiresAt())
                 .clickCount(0L)
                 .build();
 
@@ -69,22 +71,29 @@ public class UrlServiceImpl implements UrlService {
     @Override
     public String getOriginalUrl(String shortCode) {
 
-        logger.info("Searching for short code: {}", shortCode);
+        logger.info("Looking up short code: {}", shortCode);
 
         Url url = urlRepository.findByShortCode(shortCode)
                 .orElseThrow(() -> {
-                    logger.error("Short URL not found: {}", shortCode);
-                    return new ResourceNotFoundException(
-                            "Short URL not found"
-                    );
+                    logger.error("Short code not found: {}", shortCode);
+                    return new ResourceNotFoundException("Short URL not found");
                 });
+
+        // Check expiration
+        if (url.getExpiresAt() != null &&
+                LocalDateTime.now().isAfter(url.getExpiresAt())) {
+
+            logger.warn("Short URL has expired: {}", shortCode);
+
+            throw new UrlExpiredException("Short URL has expired");
+        }
 
         // Increment click count
         url.setClickCount(url.getClickCount() + 1);
 
         urlRepository.save(url);
 
-        logger.info("Redirecting to: {}", url.getOriginalUrl());
+        logger.info("Redirecting to {}", url.getOriginalUrl());
 
         return url.getOriginalUrl();
     }

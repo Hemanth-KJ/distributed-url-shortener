@@ -6,6 +6,7 @@ import com.hemanth.distributedurlshortener.entity.Url;
 import com.hemanth.distributedurlshortener.exception.ResourceNotFoundException;
 import com.hemanth.distributedurlshortener.repository.UrlRepository;
 import com.hemanth.distributedurlshortener.service.UrlService;
+import com.hemanth.distributedurlshortener.dto.response.UrlAnalyticsResponse;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -86,6 +87,27 @@ public class UrlServiceImpl implements UrlService {
         logger.info("Redirecting to: {}", url.getOriginalUrl());
 
         return url.getOriginalUrl();
+    }
+    @Override
+    public UrlAnalyticsResponse getAnalytics(String shortCode) {
+
+        logger.info("Fetching analytics for short code: {}", shortCode);
+
+        Url url = urlRepository.findByShortCode(shortCode)
+                .orElseThrow(() -> {
+                    logger.error("Analytics requested for non-existing short code: {}", shortCode);
+                    return new ResourceNotFoundException("Short URL not found");
+                });
+
+        logger.info("Analytics fetched successfully for short code: {}", shortCode);
+
+        return UrlAnalyticsResponse.builder()
+                .originalUrl(url.getOriginalUrl())
+                .shortCode(url.getShortCode())
+                .clickCount(url.getClickCount())
+                .createdAt(url.getCreatedAt())
+                .expiresAt(url.getExpiresAt())
+                .build();
     }
 
     @Override

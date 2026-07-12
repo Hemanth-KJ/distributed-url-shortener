@@ -4,6 +4,7 @@ import com.hemanth.distributedurlshortener.dto.request.CreateShortUrlRequest;
 import com.hemanth.distributedurlshortener.dto.response.ShortUrlResponse;
 import com.hemanth.distributedurlshortener.response.ApiResponse;
 import com.hemanth.distributedurlshortener.service.UrlService;
+import com.hemanth.distributedurlshortener.dto.response.UrlAnalyticsResponse;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -45,5 +46,19 @@ public class UrlController {
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(apiResponse);
+    }
+    @GetMapping("/{shortCode}/analytics")
+    public ResponseEntity<ApiResponse<UrlAnalyticsResponse>> getAnalytics(
+            @PathVariable String shortCode) {
+
+        UrlAnalyticsResponse response = urlService.getAnalytics(shortCode);
+
+        ApiResponse<UrlAnalyticsResponse> apiResponse = ApiResponse.<UrlAnalyticsResponse>builder()
+                .success(true)
+                .message("Analytics fetched successfully")
+                .data(response)
+                .build();
+
+        return ResponseEntity.ok(apiResponse);
     }
 }

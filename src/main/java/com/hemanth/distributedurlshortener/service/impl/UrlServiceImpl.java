@@ -6,12 +6,15 @@ import com.hemanth.distributedurlshortener.entity.Url;
 import com.hemanth.distributedurlshortener.exception.ResourceNotFoundException;
 import com.hemanth.distributedurlshortener.repository.UrlRepository;
 import com.hemanth.distributedurlshortener.service.UrlService;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
 import java.time.LocalDateTime;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -26,49 +29,40 @@ public class UrlServiceImpl implements UrlService {
     @Override
     public ShortUrlResponse createShortUrl(CreateShortUrlRequest request) {
 
-        logger.info("Received request to create short URL for: {}", request.getOriginalUrl());
+        logger.info("Received request to create short URL for: {}",
+                request.getOriginalUrl());
 
-        try {
+        // Check if URL already exists
+        Optional<Url> existingUrl =
+                urlRepository.findByOriginalUrl(request.getOriginalUrl());
 
-            // Generate short code
-            String shortCode = UUID.randomUUID()
-                    .toString()
-                    .substring(0, 8);
+        if (existingUrl.isPresent()) {
 
-            logger.info("Generated short code: {}", shortCode);
+            logger.info("URL already exists. Returning existing short URL.");
 
-            // Create URL entity
-            Url url = Url.builder()
-                    .originalUrl(request.getOriginalUrl())
-                    .shortCode(shortCode)
-                    .createdAt(LocalDateTime.now())
-                    .clickCount(0L)
-                    .build();
-
-            logger.info("Saving URL to database...");
-
-            // Save URL
-            urlRepository.save(url);
-
-            logger.info("URL saved successfully with ID: {}", url.getId());
-
-            // Build response
-            ShortUrlResponse response = ShortUrlResponse.builder()
-                    .originalUrl(url.getOriginalUrl())
-                    .shortCode(shortCode)
-                    .shortUrl("http://localhost:8080/" + shortCode)
-                    .build();
-
-            logger.info("Short URL created successfully.");
-
-            return response;
-
-        } catch (Exception ex) {
-
-            logger.error("Failed to create short URL.", ex);
-
-            throw ex;
+            return buildResponse(existingUrl.get());
         }
+
+        // Generate unique short code
+        String shortCode = generateUniqueShortCode();
+
+        logger.info("Generated unique short code: {}", shortCode);
+
+        // Create URL entity
+        Url url = Url.builder()
+                .originalUrl(request.getOriginalUrl())
+                .shortCode(shortCode)
+                .createdAt(LocalDateTime.now())
+                .clickCount(0L)
+                .build();
+
+        logger.info("Saving URL to database...");
+
+        urlRepository.save(url);
+
+        logger.info("URL saved successfully with ID: {}", url.getId());
+
+        return buildResponse(url);
     }
 
     @Override
@@ -78,23 +72,61 @@ public class UrlServiceImpl implements UrlService {
 
         Url url = urlRepository.findByShortCode(shortCode)
                 .orElseThrow(() -> {
-                    logger.warn("Short URL not found: {}", shortCode);
+                    logger.error("Short URL not found: {}", shortCode);
                     return new ResourceNotFoundException(
-                            "Short URL not found: " + shortCode);
+                            "Short URL not found"
+                    );
                 });
 
-        logger.info("Short URL found. Original URL: {}", url.getOriginalUrl());
-
-        // Increase click count
+        // Increment click count
         url.setClickCount(url.getClickCount() + 1);
 
-        logger.info("Click count updated to {}", url.getClickCount());
-
-        // Save updated click count
         urlRepository.save(url);
 
-        logger.info("Updated click count saved successfully.");
+        logger.info("Redirecting to: {}", url.getOriginalUrl());
 
         return url.getOriginalUrl();
+    }
+
+    @Override
+    public void redirectToOriginalUrl(
+            String shortCode,
+            HttpServletResponse response)
+            throws IOException {
+
+        String originalUrl = getOriginalUrl(shortCode);
+
+        response.sendRedirect(originalUrl);
+    }
+
+    /**
+     * Generate a unique short code.
+     */
+    private String generateUniqueShortCode() {
+
+        String shortCode;
+
+        do {
+
+            shortCode = UUID.randomUUID()
+                    .toString()
+                    .replace("-", "")
+                    .substring(0, 8);
+
+        } while (urlRepository.findByShortCode(shortCode).isPresent());
+
+        return shortCode;
+    }
+
+    /**
+     * Build API response.
+     */
+    private ShortUrlResponse buildResponse(Url url) {
+
+        return ShortUrlResponse.builder()
+                .originalUrl(url.getOriginalUrl())
+                .shortCode(url.getShortCode())
+                .shortUrl("http://localhost:8080/" + url.getShortCode())
+                .build();
     }
 }

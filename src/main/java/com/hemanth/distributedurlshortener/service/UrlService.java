@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import com.hemanth.distributedurlshortener.dto.response.UrlAnalyticsResponse;
 
 import java.io.IOException;
+import java.util.List;
 
 public interface UrlService {
 
@@ -19,4 +20,6 @@ public interface UrlService {
                                HttpServletResponse response)
             throws IOException;
     byte[] generateQrCode(String shortCode);
+    List<ShortUrlResponse> getMyUrls();
+
 }

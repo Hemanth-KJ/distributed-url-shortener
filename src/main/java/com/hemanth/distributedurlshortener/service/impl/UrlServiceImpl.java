@@ -13,7 +13,7 @@ import com.hemanth.distributedurlshortener.repository.UrlRepository;
 import com.hemanth.distributedurlshortener.repository.UserRepository;
 import com.hemanth.distributedurlshortener.service.UrlService;
 import com.hemanth.distributedurlshortener.util.QrCodeGenerator;
-
+import com.hemanth.distributedurlshortener.config.RedisProperties;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 
@@ -21,6 +21,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.data.redis.core.RedisTemplate;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
@@ -40,6 +41,9 @@ public class UrlServiceImpl implements UrlService {
 
     private final UserRepository userRepository;
     private final UrlRepository urlRepository;
+    private final RedisTemplate<String, String> redisTemplate;
+    private final RedisProperties redisProperties;
+    private static final String CACHE_PREFIX = "url:";
 
 
     @Override
@@ -111,13 +115,38 @@ public class UrlServiceImpl implements UrlService {
 
     @Override
     public String getOriginalUrl(String shortCode) {
+        long startTime = System.currentTimeMillis();
+        String cacheKey = CACHE_PREFIX + shortCode;
 
+        String cachedUrl = redisTemplate.opsForValue().get(cacheKey);
+
+        if (cachedUrl != null) {
+
+            logger.info("Cache HIT for {}", shortCode);
+
+            long endTime = System.currentTimeMillis();
+
+            logger.info("Response Time: {} ms", endTime - startTime);
+
+            return cachedUrl;
+        }
+
+        logger.info("Cache MISS for {}", shortCode);
 
         Url url = urlRepository.findByShortCode(shortCode)
                 .orElseThrow(() ->
                         new ResourceNotFoundException(
                                 "Short URL not found"
                         ));
+
+
+
+        redisTemplate.opsForValue().set(
+                cacheKey,
+                url.getOriginalUrl(),
+                java.time.Duration.ofSeconds(redisProperties.getTtl())
+        );
+        logger.info("Stored {} in Redis cache", shortCode);
 
 
         if (url.getExpiresAt() != null &&
@@ -134,6 +163,9 @@ public class UrlServiceImpl implements UrlService {
 
         urlRepository.save(url);
 
+        long endTime = System.currentTimeMillis();
+
+        logger.info("Response Time: {} ms", endTime - startTime);
 
         return url.getOriginalUrl();
     }
@@ -254,7 +286,14 @@ public class UrlServiceImpl implements UrlService {
         return shortCode;
     }
 
+    private void evictCache(String shortCode) {
 
+        String cacheKey =  CACHE_PREFIX + shortCode;
+
+        redisTemplate.delete(cacheKey);
+
+        logger.info("Removed {} from Redis cache", shortCode);
+    }
 
 
     private ShortUrlResponse buildResponse(Url url) {

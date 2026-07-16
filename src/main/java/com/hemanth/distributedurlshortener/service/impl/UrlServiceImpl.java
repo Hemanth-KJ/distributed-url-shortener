@@ -14,6 +14,7 @@ import com.hemanth.distributedurlshortener.repository.UserRepository;
 import com.hemanth.distributedurlshortener.service.UrlService;
 import com.hemanth.distributedurlshortener.util.QrCodeGenerator;
 import com.hemanth.distributedurlshortener.config.RedisProperties;
+import com.hemanth.distributedurlshortener.kafka.UrlClickProducer;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 
@@ -44,6 +45,7 @@ public class UrlServiceImpl implements UrlService {
     private final RedisTemplate<String, String> redisTemplate;
     private final RedisProperties redisProperties;
     private static final String CACHE_PREFIX = "url:";
+    private final UrlClickProducer urlClickProducer;
 
 
     @Override
@@ -123,6 +125,9 @@ public class UrlServiceImpl implements UrlService {
         if (cachedUrl != null) {
 
             logger.info("Cache HIT for {}", shortCode);
+            urlClickProducer.publishClick(shortCode);
+
+            logger.info("Click event published for {}", shortCode);
 
             long endTime = System.currentTimeMillis();
 
@@ -158,10 +163,9 @@ public class UrlServiceImpl implements UrlService {
             );
         }
 
+    // url.setClickCount(url.getClickCount() + 1);
+// urlRepository.save(url);
 
-        url.setClickCount(url.getClickCount() + 1);
-
-        urlRepository.save(url);
 
         long endTime = System.currentTimeMillis();
 

@@ -30,3 +30,6 @@ jobs:
 
       - name: Check Java Version
         run: java -version
+
+      - name: Run Maven Tests
+        run: mvn clean test

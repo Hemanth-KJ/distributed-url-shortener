@@ -40,6 +40,7 @@ public class SecurityConfig {
                 // Authorization rules
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/v1/auth/**").permitAll()
+                        .requestMatchers("/api/v1/urls/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/{shortCode}").permitAll()
                         .anyRequest().authenticated()
                 )

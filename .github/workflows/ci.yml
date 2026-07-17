@@ -33,3 +33,6 @@ jobs:
 
       - name: Run Maven Build
         run: mvn clean package -DskipTests
+
+      - name: Build Docker Image
+        run: docker build -t distributed-url-shortener .

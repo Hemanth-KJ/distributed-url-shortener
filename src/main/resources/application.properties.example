@@ -1,25 +1,40 @@
-# ==========================================
-# Application
-# ==========================================
 spring.application.name=distributed-url-shortener
 
-# ==========================================
-# PostgreSQL Configuration
-# ==========================================
-spring.datasource.url=jdbc:postgresql://localhost:5432/distributed_url_shortener
-spring.datasource.username=YOUR_USERNAME
-spring.datasource.password=YOUR_PASSWORD
+spring.datasource.url=jdbc:postgresql://postgres:5432/distributed_url_shortener
+spring.datasource.username=postgres
+spring.datasource.password=postgres
 
 spring.datasource.driver-class-name=org.postgresql.Driver
 
-# ==========================================
-# Hibernate
-# ==========================================
 spring.jpa.hibernate.ddl-auto=update
+spring.jpa.open-in-view=false
 spring.jpa.show-sql=true
 spring.jpa.properties.hibernate.format_sql=true
+# JWT Configuration
+jwt.secret=MyVerySecretKeyForDistributedUrlShortenerProject2026SecureKey12345
+jwt.expiration=86400000
+# =========================
+# Redis Configuration
+# =========================
+spring.data.redis.host=localhost
+spring.data.redis.port=6379
 
-# ==========================================
-# Server
-# ==========================================
-server.port=8080
+# Cache TTL (10 minutes)
+redis.cache.ttl=600
+
+# =========================
+# Kafka Configuration
+# =========================
+spring.kafka.bootstrap-servers=localhost:9092
+
+spring.kafka.consumer.group-id=url-shortener-group
+
+spring.kafka.consumer.auto-offset-reset=earliest
+
+spring.kafka.consumer.key-deserializer=org.apache.kafka.common.serialization.StringDeserializer
+
+spring.kafka.consumer.value-deserializer=org.apache.kafka.common.serialization.StringDeserializer
+
+spring.kafka.producer.key-serializer=org.apache.kafka.common.serialization.StringSerializer
+
+spring.kafka.producer.value-serializer=org.apache.kafka.common.serialization.StringSerializer

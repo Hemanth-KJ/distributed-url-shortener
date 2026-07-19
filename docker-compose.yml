@@ -19,6 +19,12 @@ services:
 
     restart: always
 
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 
   redis:
 
@@ -30,6 +36,12 @@ services:
 
     ports:
       - "6379:6379"
+
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 
   kafka:
@@ -54,6 +66,7 @@ services:
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
 
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+#      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
 
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
 
@@ -61,22 +74,34 @@ services:
 
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
 
+#    healthcheck:
+#      test: [ "CMD-SHELL", "kafka-topics.sh --bootstrap-server localhost:9092 --list > /dev/null 2>&1 || exit 1" ]
+#      interval: 15s
+#      timeout: 10s
+#      retries: 5
 
   app:
+    build:
+      context: .
+      dockerfile: Dockerfile
 
-    image: distributed-url-shortener
+    image: distributed-url-shortener:1.0.0
 
     container_name: distributed-url-shortener
 
     depends_on:
-      - postgres
-      - redis
-      - kafka
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_started
 
     ports:
       - "8080:8080"
 
     environment:
+      SPRING_PROFILES_ACTIVE: prod
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/distributed_url_shortener
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
@@ -85,6 +110,31 @@ services:
 
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
 
+      JWT_SECRET: MyVerySecretKeyForDistributedUrlShortenerProject2026SecureKey12345
+
+    healthcheck:
+      test: [ "CMD-SHELL", "wget --spider -q http://localhost:8080/actuator/health || exit 1" ]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+  nginx:
+    image: nginx:alpine
+
+    container_name: nginx
+
+    restart: always
+
+    ports:
+      - "80:80"
+
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+
+    depends_on:
+      app:
+        condition: service_started
 
 #    environment:
 #      SPRING_DATASOURCE_URL: jdbc:postgresql://host.docker.internal:5432/distributed_url_shortener

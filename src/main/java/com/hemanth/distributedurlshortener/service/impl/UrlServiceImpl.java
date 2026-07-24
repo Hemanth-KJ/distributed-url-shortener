@@ -125,7 +125,7 @@ public class UrlServiceImpl implements UrlService {
         if (cachedUrl != null) {
 
             logger.info("Cache HIT for {}", shortCode);
-            urlClickProducer.publishClick(shortCode);
+             urlClickProducer.publishClick(shortCode);
 
             logger.info("Click event published for {}", shortCode);
 

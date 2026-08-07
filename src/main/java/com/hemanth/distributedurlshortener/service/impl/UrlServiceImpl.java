@@ -18,6 +18,7 @@ import com.hemanth.distributedurlshortener.kafka.UrlClickProducer;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -35,6 +36,9 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class UrlServiceImpl implements UrlService {
+
+   @Value("${app.base-url}")
+   private String baseUrl;
 
     private static final Logger logger =
             LoggerFactory.getLogger(UrlServiceImpl.class);
@@ -115,64 +119,128 @@ public class UrlServiceImpl implements UrlService {
 
 
 
-    @Override
-    public String getOriginalUrl(String shortCode) {
-        long startTime = System.currentTimeMillis();
-        String cacheKey = CACHE_PREFIX + shortCode;
+   @Override
+public String getOriginalUrl(String shortCode) {
 
-        String cachedUrl = redisTemplate.opsForValue().get(cacheKey);
+    long startTime = System.currentTimeMillis();
 
-        if (cachedUrl != null) {
-
-            logger.info("Cache HIT for {}", shortCode);
-             urlClickProducer.publishClick(shortCode);
-
-            logger.info("Click event published for {}", shortCode);
-
-            long endTime = System.currentTimeMillis();
-
-            logger.info("Response Time: {} ms", endTime - startTime);
-
-            return cachedUrl;
-        }
-
-        logger.info("Cache MISS for {}", shortCode);
-
-        Url url = urlRepository.findByShortCode(shortCode)
-                .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "Short URL not found"
-                        ));
+    String cacheKey = CACHE_PREFIX + shortCode;
 
 
+    /*
+     * Always get the URL from PostgreSQL first.
+     *
+     * PostgreSQL contains the expiresAt value,
+     * while Redis only contains the original URL.
+     */
+    Url url = urlRepository.findByShortCode(shortCode)
+            .orElseThrow(() ->
+                    new ResourceNotFoundException(
+                            "Short URL not found"
+                    ));
 
-        redisTemplate.opsForValue().set(
-                cacheKey,
-                url.getOriginalUrl(),
-                java.time.Duration.ofSeconds(redisProperties.getTtl())
+
+    /*
+     * Check expiration BEFORE Redis.
+     *
+     * If expiresAt is null:
+     *      URL never expires.
+     *
+     * If expiresAt is in the past:
+     *      URL has expired.
+     */
+    if (url.getExpiresAt() != null &&
+            !LocalDateTime.now().isBefore(url.getExpiresAt())) {
+
+        // Remove expired URL from Redis if it exists
+        redisTemplate.delete(cacheKey);
+
+        logger.info(
+                "Short URL {} has expired at {}",
+                shortCode,
+                url.getExpiresAt()
         );
-        logger.info("Stored {} in Redis cache", shortCode);
 
-
-        if (url.getExpiresAt() != null &&
-                LocalDateTime.now().isAfter(url.getExpiresAt())) {
-
-
-            throw new UrlExpiredException(
-                    "Short URL has expired"
-            );
-        }
-
-    // url.setClickCount(url.getClickCount() + 1);
-// urlRepository.save(url);
-
-
-        long endTime = System.currentTimeMillis();
-
-        logger.info("Response Time: {} ms", endTime - startTime);
-
-        return url.getOriginalUrl();
+        throw new UrlExpiredException(
+                "Short URL has expired"
+        );
     }
+
+
+    /*
+     * URL is NOT expired.
+     * Now check Redis.
+     */
+    String cachedUrl =
+            redisTemplate.opsForValue().get(cacheKey);
+
+
+    if (cachedUrl != null) {
+
+        logger.info(
+                "Cache HIT for {}",
+                shortCode
+        );
+
+        urlClickProducer.publishClick(shortCode);
+
+        logger.info(
+                "Click event published for {}",
+                shortCode
+        );
+
+        long endTime =
+                System.currentTimeMillis();
+
+        logger.info(
+                "Response Time: {} ms",
+                endTime - startTime
+        );
+
+        return cachedUrl;
+    }
+
+
+    /*
+     * Redis cache MISS.
+     */
+    logger.info(
+            "Cache MISS for {}",
+            shortCode
+    );
+
+
+    /*
+     * Only cache the URL after confirming
+     * that it has not expired.
+     */
+    redisTemplate.opsForValue().set(
+            cacheKey,
+            url.getOriginalUrl(),
+            java.time.Duration.ofSeconds(
+                    redisProperties.getTtl()
+            )
+    );
+
+
+    logger.info(
+            "Stored {} in Redis cache",
+            shortCode
+    );
+
+
+    long endTime =
+            System.currentTimeMillis();
+
+
+    logger.info(
+            "Response Time: {} ms",
+            endTime - startTime
+    );
+
+
+    return url.getOriginalUrl();
+}
     @Override
     public List<ShortUrlResponse> getMyUrls() {
 
@@ -242,8 +310,7 @@ public class UrlServiceImpl implements UrlService {
                         ));
 
 
-        String shortUrl =
-                "http://localhost:8080/" + url.getShortCode();
+       String shortUrl = baseUrl + "/" + url.getShortCode();
 
 
         try {
@@ -307,7 +374,7 @@ public class UrlServiceImpl implements UrlService {
                 .originalUrl(url.getOriginalUrl())
                 .shortCode(url.getShortCode())
                 .shortUrl(
-                        "http://localhost:8080/"
+                       baseUrl + "/"
                                 + url.getShortCode()
                 )
                 .build();
